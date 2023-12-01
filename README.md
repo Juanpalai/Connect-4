@@ -31,7 +31,8 @@ Make sure you have Java installed on your system before running the game.
 
 ## Screenshots
 
-_(Add screenshots here if desired)_
+![Screenshot](https://github.com/Juanpalai/Porfolio/blob/main/images/connect4.png)
+
 
 ## License
 
