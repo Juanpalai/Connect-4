@@ -12,12 +12,10 @@ This is a Connect Four game developed entirely in Java using the Swing graphics 
 
 ## Instructions
 
-1. **Restart:** Restart the game.
+1. **Recomenzar:** Restart the game.
 2. **Exit:** Close the application.
-3. **Turn:** Indicates whose turn it is.
-4. **Human/Computer:** Shows who is currently playing.
-5. **Victories:** Number of victories for the human player.
-6. **Defeats:** Number of defeats for the human player.
+3. **Turno:** Indicates whose turn it is.
+4. **Humano/Computadora:** Shows who is currently playing Human/Computer.
 
 ## Requirements
 
@@ -25,9 +23,10 @@ Make sure you have Java installed on your system before running the game.
 
 ## How to Play
 
-1. Run the application.
-2. Click on the cells to make your move.
-3. Try to get four chips in a row before the AI does!
+1. Download and install the game on your device [itch.io](https://tradocks.itch.io/connect-4)
+2. Launch the app and start a new game
+3. Click on the cells to make your move.
+4. Try to get four chips in a row before the AI does!
 
 ## Screenshots
 
