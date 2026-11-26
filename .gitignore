@@ -1,0 +1,25 @@
+# Salida de compilación y distribución (Ant/NetBeans)
+build/
+dist/
+
+# Clases y artefactos generados
+*.class
+*.jar
+*.war
+
+# NetBeans
+nbproject/private/
+
+# macOS
+.DS_Store
+._*
+
+# IDEs y editores
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Logs y temporales
+*.log
+hs_err_pid*

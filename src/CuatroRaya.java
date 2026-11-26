@@ -1,420 +1,320 @@
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 
-import java.awt.*;
-import java.awt.event.*;
-import javax.swing.*;
+import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 
-public class CuatroRaya extends Frame implements MouseListener, ActionListener {
+import logica.EstadoPartida;
+import logica.IA;
+import logica.Partida;
+import logica.Tablero;
+import ui.CuadroDialogo;
+import ui.PanelTablero;
 
-    JButton Comienza = new JButton("Recomenzar");
-    JButton Salir = new JButton("Salir");
-    Label Vez = new Label("Turno:");
-    Label Quien = new Label(" Humano");
-    Label Victorias = new Label("Victorias: 0");
-    Label Derrotas = new Label("Derrotas: 0");
-    int estados[][] = new int[7][7];
-    int Turno;
-    int victorias;
-    int derrotas;
-    boolean jugando;
-    boolean unjugador;
-    Panel PanelPrincipal = new Panel();
+/**
+ * Ventana principal de Cuatro en Raya.
+ *
+ * <p>Esta clase es una capa fina de interfaz: presenta el tablero, traduce los
+ * clics en jugadas y delega las reglas en {@link Partida} y la elección de
+ * movimientos en {@link IA}.</p>
+ */
+@SuppressWarnings("serial")
+public final class CuatroRaya extends JFrame {
 
-    CuatroRaya() {
-        super("Cuatro en Raya");
-        int x, y;
-        setLayout(new GridLayout(20, 5));
-        addMouseListener(this);
-        Comienza.addMouseListener(this);
-        Salir.addMouseListener(this);
-        PanelPrincipal.add(Vez);
-        PanelPrincipal.add(Quien);
-        PanelPrincipal.add(Comienza);
-        add(PanelPrincipal);
-        jugando = false;
-        unjugador = true;
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent we) {
-                System.exit(0);
+    private static final long serialVersionUID = 1L;
+    private static final String TITULO = "Cuatro en Raya";
+    private static final int ANCHO_VENTANA = 650;
+    private static final int ALTO_VENTANA = 690;
+    private static final int ALTO_BARRA_SUPERIOR = 80;
+    private static final int RETARDO_MAQUINA_MS = 250;
+    private static final int ANCHO_ETIQUETA_JUGADOR = 130;
+    private static final int ANCHO_ETIQUETA_VICTORIAS = 95;
+    private static final int ANCHO_ETIQUETA_DERROTAS = 85;
+    private static final int ALTO_ETIQUETA = 20;
+    private static final float TAMANO_FUENTE_ESTADO = 14.0f;
+    private static final String PROPIEDAD_PROFUNDIDAD = "cuatroraya.profundidad";
+
+    private static final Color COLOR_FONDO = Color.LIGHT_GRAY;
+    private static final Color COLOR_HUMANO = Color.RED;
+    private static final Color COLOR_MAQUINA = Color.BLUE;
+    private static final Color COLOR_EMPATE = Color.DARK_GRAY;
+
+    private final Partida partida = new Partida();
+    private final IA ia = crearIA();
+    private final PanelTablero panelTablero = new PanelTablero();
+
+    private final JLabel etiquetaTurno = new JLabel("Turno:");
+    private final JLabel etiquetaJugador = new JLabel("Humano");
+    private final JLabel etiquetaVictorias = new JLabel("Victorias: 0");
+    private final JLabel etiquetaDerrotas = new JLabel("Derrotas: 0");
+    private final JButton botonRecomenzar = new JButton("Recomenzar");
+    private final JButton botonSalir = new JButton("Salir");
+
+    private Timer temporizadorMaquina;
+    private boolean maquinaPensando;
+
+    /** Crea y configura la ventana. */
+    public CuatroRaya() {
+        super(TITULO);
+        configurarVentana();
+        construirInterfaz();
+        conectarEventos();
+        iniciarPartida();
+    }
+
+    private void configurarVentana() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setResizable(false);
+        setSize(ANCHO_VENTANA, ALTO_VENTANA);
+        setLocationRelativeTo(null);
+        getContentPane().setBackground(COLOR_FONDO);
+        getContentPane().setLayout(new BorderLayout());
+    }
+
+    private void construirInterfaz() {
+        JPanel barraSuperior = new JPanel(new BorderLayout());
+        barraSuperior.setBackground(Color.WHITE);
+        barraSuperior.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
+        barraSuperior.setPreferredSize(new Dimension(ANCHO_VENTANA, ALTO_BARRA_SUPERIOR));
+
+        JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 6));
+        panelEstado.setOpaque(false);
+        etiquetaTurno.setFont(etiquetaTurno.getFont().deriveFont(Font.BOLD,
+                TAMANO_FUENTE_ESTADO));
+        etiquetaJugador.setFont(etiquetaJugador.getFont().deriveFont(Font.BOLD,
+                TAMANO_FUENTE_ESTADO));
+        etiquetaJugador.setForeground(COLOR_HUMANO);
+        etiquetaJugador.setPreferredSize(
+                new Dimension(ANCHO_ETIQUETA_JUGADOR, ALTO_ETIQUETA));
+        etiquetaJugador.setHorizontalAlignment(SwingConstants.LEFT);
+        etiquetaVictorias.setPreferredSize(
+                new Dimension(ANCHO_ETIQUETA_VICTORIAS, ALTO_ETIQUETA));
+        etiquetaDerrotas.setPreferredSize(
+                new Dimension(ANCHO_ETIQUETA_DERROTAS, ALTO_ETIQUETA));
+        panelEstado.add(etiquetaTurno);
+        panelEstado.add(etiquetaJugador);
+        panelEstado.add(etiquetaVictorias);
+        panelEstado.add(etiquetaDerrotas);
+
+        JPanel panelAcciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 6));
+        panelAcciones.setOpaque(false);
+        botonRecomenzar.setToolTipText("Inicia una partida nueva (R)");
+        botonSalir.setToolTipText("Cierra el juego (Esc)");
+        panelAcciones.add(botonRecomenzar);
+        panelAcciones.add(botonSalir);
+
+        barraSuperior.add(panelEstado, BorderLayout.WEST);
+        barraSuperior.add(panelAcciones, BorderLayout.EAST);
+
+        add(barraSuperior, BorderLayout.NORTH);
+        add(panelTablero, BorderLayout.CENTER);
+    }
+
+    private void conectarEventos() {
+        botonRecomenzar.addActionListener(evento -> iniciarPartida());
+        botonSalir.addActionListener(evento -> salir());
+        panelTablero.setAlElegirColumna(this::jugarHumano);
+
+        registrarAtajo(KeyEvent.VK_R, "reiniciar", new Runnable() {
+            @Override
+            public void run() {
+                iniciarPartida();
+            }
+        });
+        registrarAtajo(KeyEvent.VK_ESCAPE, "salir", new Runnable() {
+            @Override
+            public void run() {
+                salir();
             }
         });
     }
 
-    //------------------------------------------------------------------------------------------------------------------
-    public void PintaCasilla(int x) {
-        Graphics g = getGraphics();
-        int Resultados[][] = new int[3][3];
-        int result;
-        int z = 0;
-        int y;
-        for (z = 0; z < 7; z++) {
-            if (estados[x][z] != 0) {
-                break;
+    private void registrarAtajo(int tecla, String nombre, final Runnable accion) {
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke(tecla, 0), nombre);
+        getRootPane().getActionMap().put(nombre, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent evento) {
+                accion.run();
             }
+        });
+    }
+
+    private void iniciarPartida() {
+        detenerTemporizador();
+        maquinaPensando = false;
+        partida.reiniciar();
+        actualizarVista();
+    }
+
+    private void jugarHumano(int columna) {
+        if (maquinaPensando || partida.getEstado() != EstadoPartida.EN_CURSO
+                || !partida.esTurnoHumano()) {
+            return;
         }
-        if (z == 0) {
-            y = 7;
+        if (!partida.jugar(columna)) {
+            return;
+        }
+        actualizarVista();
+        if (partida.getEstado().haTerminado()) {
+            finalizarPartida();
         } else {
-            y = z - 1;
-        }
-
-        if ((y == 6 && estados[x][y] == 0) || ((y < 6) && (estados[x][y + 1] != 0) && (estados[x][y] == 0))) {
-            if (Turno % 2 == 0) {
-                g.setColor(Color.red);
-                estados[x][y] = -1;
-                Quien.setText("Maquina");
-            } else {
-                g.setColor(Color.blue);
-                estados[x][y] = 1;
-                Quien.setText(" Humano ");
-            }
-            g.fillOval((x * 90) + 20, (y * 80) + 100, 70, 70);
-            Turno++;
-            if (CompruebaCasilla(x, y, Resultados)) {
-                Ganaste(estados[x][y]);
-            } else {
-                if (Turno % 2 != 0) {
-                    if (unjugador) {
-                        result = JuegaIA(0);
-                        if (result >= 10) {
-                            System.out.println("la IA decidió: " + Integer.toString((result / 10) - 1));
-                            PintaCasilla((result / 10) - 1);
-                        } else {
-                            System.out.println("la IA decidió: " + Integer.toString(result));
-                            PintaCasilla(result);
-                        }
-                    }
-                }
-            }
+            programarJugadaMaquina();
         }
     }
-//---------------------------------------------------------------------------------------------------------------------------------------------        
 
-    public boolean CompruebaCasilla(int posx, int posy, int cuantas[][]) {
-        int jugador = estados[posx][posy];
-        int x, y;
-        for (x = (-1); x < 2; x++) {
-            for (y = (-1); y < 2; y++) {
-                if (x != 0 || y != 0) {
-                    cuantas[x + 1][y + 1] = CompruebaLinea(posx, posy, x, y);
-                    if (cuantas[x + 1][y + 1] >= 4) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-//---------------------------------------------------------------------------------------------------------------------------------------                
-
-    public int CompruebaLinea(int posx, int posy, int x, int y) {
-        int tempx, tempy;
-        int val;
-        int cuantas = 1;
-        int jugador = estados[posx][posy];
-        tempx = posx + x;
-        tempy = posy + y;
-        while ((tempy >= 0 && tempx >= 0) && (tempx < 7 && tempy < 7)) {
-            if (estados[tempx][tempy] == jugador) {
-                cuantas++;
-                tempx += x;
-                tempy += y;
-            } else {
-                tempx = (-1);
-            }
-        }
-        tempx = posx - x;
-        tempy = posy - y;
-        while ((tempy >= 0 && tempx >= 0) && (tempx < 7 && tempy < 7)) {
-            if (estados[tempx][tempy] == jugador) {
-                cuantas++;
-                tempx -= x;
-                tempy -= y;
-            } else {
-                tempx = (-1);
-            }
-        }
-        return cuantas;
+    private void programarJugadaMaquina() {
+        maquinaPensando = true;
+        panelTablero.setInteractivo(false);
+        final Timer temporizador = new Timer(RETARDO_MAQUINA_MS, evento -> {
+            temporizadorMaquina = null;
+            jugarMaquina();
+        });
+        temporizador.setRepeats(false);
+        temporizadorMaquina = temporizador;
+        temporizador.start();
     }
 
-    /**
-     * ***************************************************************************************
-     * CONCIENCIA IA
-*****************************************************************************************
-     */
-    public int JuegaIA(int Nveces) {
-        int temp;
-        int ValoresEl[][] = new int[3][3];
-        int ValoresYo[][] = new int[3][3];
-        int PuntosCasilla[] = new int[7];
-        int x, y, casilla;
-        int z;
-        boolean mayor;
-//				System.out.println("entró en JuegaIA, Turno: " + Integer.toString(Turno));
-        //Recorreré cada casilla en busca de la mejor opción
-        for (casilla = 0; casilla < 7; casilla++) {
-            //calculo la y actual para cada casilla
-            z = 0;
-            while (estados[casilla][z] == 0) {
-                z++;
-                if (z == 7) {
-                    break;
-                }
-            }
-            if (z == 0) {
-                y = 6;
-            } else {
-                y = z - 1;
-                //Una casilla recibe puntos por altura, un factor semialeatorio, para evitar
-                //bucles infinitos
-                PuntosCasilla[casilla] += y;
-                //otro factor aleatorio	para evitar atascos
-                PuntosCasilla[casilla] += Nveces % (casilla + 1);
-                //Obtengo mis valores para esa jugada simulando la colocación de una ficha
-                estados[casilla][y] = 1;
-                CompruebaCasilla(casilla, y, ValoresYo);
-                estados[casilla][y] = -1;
-                //Obtengo los resultados que el tendría con esa jugada simulando
-                CompruebaCasilla(casilla, y, ValoresEl);
-                estados[casilla][y] = 0;
-                //valoro mucho si yo gano(1000) o si el gana(100)
-                for (x = 0; x < 3; x++) {
-                    for (z = 0; z < 3; z++) {
-                        if (ValoresYo[x][z] >= 4) {
-                            PuntosCasilla[casilla] += 1000;
-                        }
-                        if (ValoresEl[x][z] >= 4) {
-                            PuntosCasilla[casilla] += 100;
-                        }
-                        if (ValoresYo[x][z] == 3 && Nveces < 3) {
-                            estados[casilla][y] = 1;
-                            System.out.println("Llamando a IA Recursiva en la vez: " + Nveces);
-                            if (JuegaIA(Nveces + 1) > 10) {
-                                PuntosCasilla[casilla] += 90;
-                            } else {
-                                PuntosCasilla[casilla] += 5;
-                            }
-
-                            estados[casilla][y] = 0;
-                        }
-                        if (ValoresEl[x][z] == 3 && Nveces < 3) {
-                            estados[casilla][y] = (-1);
-                            System.out.println("Llamando a IA Recursiva en la vez: " + Nveces);
-                            if (JuegaIA(Nveces + 1) > 10) {
-                                PuntosCasilla[casilla] += 100;
-                            } else {
-                                PuntosCasilla[casilla] += 10;
-                            }
-                            estados[casilla][y] = 0;
-                        }
-                        if (ValoresYo[x][z] == 2) {
-                            PuntosCasilla[casilla] += 5;
-                        }
-                    }
-                }
-                //Compruebo la casilla de encima Tanto de él como yo
-                if (y > 0) {
-                    estados[casilla][y - 1] = (1);
-                    CompruebaCasilla(casilla, y - 1, ValoresYo);
-
-                    estados[casilla][y - 1] = (-1);
-                    CompruebaCasilla(casilla, y - 1, ValoresEl);
-                    estados[casilla][y - 1] = 0;
-                }
-                //valoro si el gana poniendo encima de mi o si me jodo
-                for (x = 0; x < 3; x++) {
-                    for (z = 0; z < 3; z++) {
-                        //Me jodería una de victoria y eso no mola
-                        if (ValoresYo[x][z] >= 4) {
-                            PuntosCasilla[casilla] -= 10;
-                        }
-
-                        //Le daría la victoria y eso solo lo puedo permitir
-                        //si gano con esa jugada(o sea con 1000 de antes)
-                        if (ValoresEl[x][z] >= 4) {
-                            PuntosCasilla[casilla] -= 100;
-                        }
-                    }
-                }
-            }
+    private void jugarMaquina() {
+        maquinaPensando = false;
+        if (partida.getEstado() != EstadoPartida.EN_CURSO) {
+            actualizarVista();
+            return;
         }
-        //Tenemos los tanteos de cada casilla
-        //así que vamos a ver cual tiene mayor puntuación y colocar en ella
-        z = 0;
-        for (y = 0; y < 7; y++) {
-            mayor = true;
-            for (x = 0; x < 7; x++) {
-                if (PuntosCasilla[y] < PuntosCasilla[x]) {
-                    mayor = false;
-                }
+
+        int columna = ia.elegirColumna(partida.getTablero(), Tablero.MAQUINA);
+        if (columna >= 0) {
+            partida.jugar(columna);
+        }
+        actualizarVista();
+        if (partida.getEstado().haTerminado()) {
+            finalizarPartida();
+        }
+    }
+
+    private void finalizarPartida() {
+        detenerTemporizador();
+        maquinaPensando = false;
+        actualizarVista();
+
+        final String mensaje = mensajeResultado();
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new CuadroDialogo(CuatroRaya.this, mensaje).setVisible(true);
             }
-            if (mayor == true) {
-                if (z != 0) {
-                    z = y * 10;
+        });
+    }
+
+    private void actualizarVista() {
+        panelTablero.setTablero(partida.getTablero());
+        panelTablero.setLineaGanadora(partida.getLineaGanadora());
+        panelTablero.setUltimaJugada(partida.getUltimaFila(), partida.getUltimaColumna());
+        etiquetaVictorias.setText("Victorias: " + partida.getVictoriasHumano());
+        etiquetaDerrotas.setText("Derrotas: " + partida.getVictoriasMaquina());
+        actualizarIndicador();
+        panelTablero.setInteractivo(partida.getEstado() == EstadoPartida.EN_CURSO
+                && partida.esTurnoHumano() && !maquinaPensando);
+    }
+
+    private void actualizarIndicador() {
+        switch (partida.getEstado()) {
+            case EN_CURSO:
+                etiquetaTurno.setText("Turno:");
+                if (partida.esTurnoHumano()) {
+                    etiquetaJugador.setText("Humano");
+                    etiquetaJugador.setForeground(COLOR_HUMANO);
                 } else {
-                    z = y;
+                    etiquetaJugador.setText("Maquina");
+                    etiquetaJugador.setForeground(COLOR_MAQUINA);
                 }
+                break;
+            case VICTORIA_HUMANO:
+                etiquetaTurno.setText("Resultado:");
+                etiquetaJugador.setText("¡Ganaste!");
+                etiquetaJugador.setForeground(COLOR_HUMANO);
+                break;
+            case VICTORIA_MAQUINA:
+                etiquetaTurno.setText("Resultado:");
+                etiquetaJugador.setText("Ganó la máquina");
+                etiquetaJugador.setForeground(COLOR_MAQUINA);
+                break;
+            case EMPATE:
+                etiquetaTurno.setText("Resultado:");
+                etiquetaJugador.setText("Empate");
+                etiquetaJugador.setForeground(COLOR_EMPATE);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private String mensajeResultado() {
+        switch (partida.getEstado()) {
+            case VICTORIA_HUMANO:
+                return "GANASTE JUGADOR HUMANO";
+            case VICTORIA_MAQUINA:
+                return "GANÓ LA MÁQUINA!!!";
+            case EMPATE:
+                return "EMPATE";
+            default:
+                return "";
+        }
+    }
+
+    private void detenerTemporizador() {
+        if (temporizadorMaquina != null) {
+            temporizadorMaquina.stop();
+            temporizadorMaquina = null;
+        }
+    }
+
+    private void salir() {
+        detenerTemporizador();
+        dispose();
+        System.exit(0);
+    }
+
+    private static IA crearIA() {
+        String configurada = System.getProperty(PROPIEDAD_PROFUNDIDAD);
+        if (configurada != null) {
+            try {
+                int profundidad = Integer.parseInt(configurada.trim());
+                if (profundidad >= 1) {
+                    return new IA(profundidad);
+                }
+            } catch (NumberFormatException ignorada) {
+                // Se usa la profundidad por defecto.
             }
         }
-
-        System.out.println("Final de JuegaIA");
-        return (z);
+        return new IA();
     }
 
     /**
-     * *************************HASTA AQUÍ LA I
-     * /---------------------------------------------------------------------------
+     * Punto de entrada del juego.
      *
-     * @param jugador*************************
+     * @param argumentos no se usan
      */
-
-    public void Ganaste(int jugador) {
-        String s = null;
-        Thread tiempo = new Thread();
-        if (jugador == (-1)) {
-            victorias++;
-            if (unjugador) {
-                s = "GANASTE JUGADOR HUMANO";
-                Victorias.setText("Victorias: " + Integer.toString(victorias));
-                Derrotas.setText("Derrotas: " + Integer.toString(derrotas));
+    public static void main(String[] argumentos) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new CuatroRaya().setVisible(true);
             }
-        } else {
-            derrotas++;
-            if (unjugador) {
-                s = "GANÓ LA MÁQUINA!!!";
-                Victorias.setText("Victorias: " + Integer.toString(victorias));
-                Derrotas.setText("Derrotas: " + Integer.toString(derrotas));
-            }
-        }
-
-        CuadroDialogo dig = new CuadroDialogo(this, s);
-        jugando = false;
-        dig.move(300, 10);
-        dig.setVisible(true);
-        try {
-            tiempo.sleep(1000);
-        } catch (InterruptedException e) {
-        }
-    }
-//--------------------------------------------------------------------------------------------------------------------------------------------                
-
-    public void paint(Graphics g) {
-        int x;
-        int y;
-        g.setColor(Color.lightGray);
-        g.fillRect(1, 1, 650, 690);
-
-        g.setColor(Color.white);
-        g.fillRect(1, 1, 650, 55);
-
-        for (x = 0; x < 7; x++) {
-            for (y = 0; y < 7; y++) {
-                g.fillOval((x * 90) + 20, (y * 80) + 100, 70, 70);
-                estados[x][y] = 0;
-            }
-        }
-    }
-    //----------------------------------------------------------------------------------------------------------
-
-    public void ReStart() {
-        Graphics g = getGraphics();
-        int x;
-        int y;
-        Turno = 0;
-        jugando = true;
-        System.out.println("reestart");
-        g.setColor(Color.lightGray);
-        g.fillRect(1, 1, 650, 690);
-
-        g.setColor(Color.white);
-        g.fillRect(1, 1, 650, 50);
-
-        for (x = 0; x < 7; x++) {
-            for (y = 0; y < 7; y++) {
-                g.fillOval((x * 90) + 20, (y * 80) + 100, 70, 70);
-                estados[x][y] = 0;
-            }
-        }
-    }
-    //----------------------------------------------------------------------------------------------------------------------------------------------
-
-    public static void main(String[] Args) {
-        CuatroRaya a = new CuatroRaya();
-        a.pack();
-        a.setSize(650, 690);
-        a.setResizable(false);
-        a.show();
-    }
-    //-------------------------------------------------------------------------------------------------------------------------------------------
-
-    public void mousePressed(MouseEvent me) {
-        int z;
-        z = me.getX();
-        System.out.println("evento click");
-        if (jugando) {
-            System.out.println("evento click jugando");
-            z = (z - 10) / 90;
-            PintaCasilla(z);
-        }
-        if (me.getSource() == Salir) {
-            System.exit(0);
-        }
-
-        if (me.getSource() == Comienza) {
-            ReStart();
-        }
-    }
-
-    public void mouseClicked(MouseEvent me) {
-        //Vacio
-    }
-
-    public void mouseEntered(MouseEvent me) {
-        //Vacio
-    }
-
-    public void mouseExited(MouseEvent me) {
-        //Vacio
-    }
-
-    public void mouseReleased(MouseEvent me) {
-        //Vacio
-    }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-}
-//----------------------------------------------------------------------------------------------------------------------------------
-
-class CuadroDialogo extends Dialog {
-
-    Button aceptar = new Button("OK");
-    Label texto = new Label();
-    String cad;
-
-    CuadroDialogo(Frame f, String s) {
-        super(f, "informacion");
-        setSize(400, 100);
-        setResizable(false);
-        setBackground(Color.white);
-        texto.setText(s);
-        add("North", texto);
-        add("South", aceptar);
-    }
-
-    public void paint(Graphics g) {
-        g.setColor(Color.white);
-        g.drawString(cad, 50, 50);
-    }
-
-    @Override
-    public boolean action(Event evt, Object obj) {
-        if (evt.target == aceptar) {
-            dispose();
-            return true;
-        }
-        return false;
+        });
     }
 }

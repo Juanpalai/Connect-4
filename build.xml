@@ -70,4 +70,19 @@
     nbproject/build-impl.xml file. 
 
     -->
+
+    <!--
+        Pruebas del proyecto: se ejecutan con un runner propio para no añadir
+        JUnit ni ninguna otra dependencia externa al classpath.
+    -->
+    <target name="test" depends="compile-test"
+            description="Compila y ejecuta las pruebas unitarias (sin dependencias externas)">
+        <java classname="pruebas.Pruebas" fork="true" failonerror="true" dir="${basedir}">
+            <classpath>
+                <pathelement location="${build.classes.dir}"/>
+                <pathelement location="${build.test.classes.dir}"/>
+            </classpath>
+        </java>
+    </target>
+
 </project>
